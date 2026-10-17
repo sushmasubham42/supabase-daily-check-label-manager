@@ -1,0 +1,37 @@
+name: Supabase Daily Check
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-supabase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Supabase API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -eu
+
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Required secrets are missing."
+            exit 1
+          fi
+
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+            --max-time 20 \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/labels?select=id&limit=1")
+
+          case "$CODE" in
+            2??) echo "Supabase API responded successfully: HTTP $CODE" ;;
+            *) echo "Supabase API check failed: HTTP $CODE"; exit 1 ;;
+          esac
